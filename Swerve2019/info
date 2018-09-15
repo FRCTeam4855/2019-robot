@@ -3,3 +3,7 @@ Glossary of Variable Names
 MEASURE_WIDTH - width of the robot
 MEASURE_LENGTH - length of the robot
 MEASURE_DIAG - the diagonal distance of the robot, sqrt(width^2 + length^2)
+encoder[0-3] - obviously the encoder values 0 through 3
+motorDrive[0-3] - the motor controllers used to roll the wheels
+motorDir[0-3] - the motor controllers used to rotate the wheels around
+speed[], angle[] - values passed into swerve controls
