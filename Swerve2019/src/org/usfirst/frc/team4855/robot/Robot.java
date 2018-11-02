@@ -17,7 +17,6 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PIDController;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.Spark;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
@@ -31,11 +30,11 @@ public class Robot extends IterativeRobot {
 	
 	Joystick controlDrive = new Joystick(0);
 	
-	public final double MEASURE_WIDTH = 33;
-	public final double MEASURE_LENGTH = 28;
-	public final double MEASURE_DIAG = Math.sqrt ((MEASURE_LENGTH * MEASURE_LENGTH) + (MEASURE_WIDTH * MEASURE_WIDTH));
-	public final double MEASURE_MAXVOLTS = 4.95;
-	final double ETD = 1.158333; //ENCODER TO DEGREES
+	public final static double MEASURE_WIDTH = 33;
+	public final static double MEASURE_LENGTH = 28;
+	public final static double MEASURE_DIAG = Math.sqrt ((MEASURE_LENGTH * MEASURE_LENGTH) + (MEASURE_WIDTH * MEASURE_WIDTH));
+	public final static double ETD = 1.158333; //ENCODER TO DEGREES
+	public boolean input = false;
 	
 	// ALL MOTORS
 	
@@ -63,12 +62,10 @@ public class Robot extends IterativeRobot {
 		new Encoder(0,1)
 	};
 	
-	// Wheel flip checks
-	int[] wheelFlip = {1,1,1,1};
-	
 	// Defining swerve vars
-	double a, b, c, d, max, temp, rads;
+	double a, b, c, d, rads;
 	boolean driverOriented = true;
+	double driveVal[] = {0,0,0};
 	
 	//NAVX CONSTRUCTOR
 	AHRS ahrs = new AHRS(SPI.Port.kMXP); //Use this for gyro
@@ -80,7 +77,13 @@ public class Robot extends IterativeRobot {
 		new PIDController(0.035,0,0.01,encoder[2],motorDir[2]),
 		new PIDController(0.035,0,0.01,encoder[3],motorDir[3])
 	};
-	
+	// Wheel objects
+	Wheel wheel[] = {
+		new Wheel(0,encoder[0],motorDir[0],motorDrive[0],pidDir[0]),
+		new Wheel(1,encoder[1],motorDir[1],motorDrive[1],pidDir[1]),
+		new Wheel(2,encoder[2],motorDir[2],motorDrive[2],pidDir[2]),
+		new Wheel(3,encoder[3],motorDir[3],motorDrive[3],pidDir[3])
+	};
 	
 	/**
 	 * This function is run when the robot is first started up and should be
@@ -109,15 +112,15 @@ public class Robot extends IterativeRobot {
 			pidDir[i].enable();
 			encoder[i].reset();
 		}
+		driveVal[0] = 0;driveVal[1] = 0;driveVal[2] = 0;
 	}
 	
 	@Override
 	public void teleopPeriodic() {
-		double driveVal[] = {
-			controlDrive.getRawAxis(1), //fwd
-			controlDrive.getRawAxis(0), //str
-			controlDrive.getRawAxis(4)  //rcw
-		};
+		driveVal[0] = -controlDrive.getRawAxis(1); // fwd
+		driveVal[1] = -controlDrive.getRawAxis(0); // str
+		driveVal[2] = controlDrive.getRawAxis(4); // rcw
+		
 		for (int i=0;i<=2;i++) {
 			if (driveVal[i] <= .2  && driveVal[i] >= -.2) {
 				driveVal[i] = 0;
@@ -126,7 +129,23 @@ public class Robot extends IterativeRobot {
 			}
 		}
 		setPIDs(pidDir,true);
-		swerveDrive(driveVal[0], driveVal[1], driveVal[2]);
+		
+		SmartDashboard.putNumber("fwd", driveVal[0]);
+		SmartDashboard.putNumber("str", driveVal[1]);
+		SmartDashboard.putNumber("rcw", driveVal[2]);
+		
+		if ((driveVal[0] == 0 && driveVal[1] == 0 && driveVal[2] == 0) == false) {
+				for (int i=0;i<=3;i++) {
+				// Actual swerve function
+				wheel[i].swerve(driveVal[0],driveVal[1],driveVal[2],input);
+			}
+			input = true;
+		} else {
+			input = false;
+			wheel[0].flip = 1;wheel[1].flip = 1;wheel[2].flip = 1;wheel[3].flip = 1;
+			pidDir[0].setSetpoint(0);pidDir[1].setSetpoint(0);
+			pidDir[2].setSetpoint(0);pidDir[3].setSetpoint(0);
+		}
 		
 		if (controlDrive.getRawButtonPressed(3)) {
 			encoder[0].reset();encoder[1].reset();
@@ -136,6 +155,11 @@ public class Robot extends IterativeRobot {
 			//ahrs.reset();
 		}
 	}
+	
+	
+	
+	// THE FOLLOWING IS SWERVE CODE THAT I'M MOVING INTO ITS OWN OBJECT
+	
 	
 	public void swerveDrive(double fwd, double str, double rcw) {
 	    // quick maffs
@@ -153,14 +177,13 @@ public class Robot extends IterativeRobot {
 	    		Math.sqrt ((b * b) + (c * c)), // 3 new 1 old
 	    		Math.sqrt ((a * a) + (c * c)), // 1 new 3 old
 	    		Math.sqrt ((a * a) + (d * d)) // 0 new 2 old
-	    		
 	    };
 	    double angle[] = {
 	    		(Math.atan2 (b, d) * 180 / Math.PI) * ETD, // 2 new 0 old
 	    		(Math.atan2 (b, c) * 180 / Math.PI) * ETD, // 3 new 1 old
 	    		(Math.atan2 (a, c) * 180 / Math.PI) * ETD, // 1 new 3 old
 	    		(Math.atan2 (a, d) * 180 / Math.PI) * ETD // 0 new 2 old
-	    		
+
 	    };
 	    
 	    for (int i=0;i<=3;i++) {
