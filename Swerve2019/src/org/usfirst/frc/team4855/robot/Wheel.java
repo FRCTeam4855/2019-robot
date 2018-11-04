@@ -57,12 +57,24 @@ public class Wheel {
 	    }
 	    
 	    if (flip == -1) {
-	    	angle += 180;
-	    	if (angle < 180) {
-	    		angle -= 360;
+	    	angle += 180 * Robot.ETD;
+	    	if (angle < 180 * Robot.ETD) {
+	    		angle -= 360 * Robot.ETD;
 	    	}
 	    }
 	    
+		/*
+		When it comes to determining whether or not to flip the wheel direction,
+		the `input` var probably won't help you much. What you need to do
+		is determine how far the wheel needs to rotate from its CURRENT
+		position. If the wheel will need to rotate more than 90 degrees (and less 
+		than 270 degrees), that's when you'll want to apply a wheel speed flip. 
+		The SwerveWheel object from the 2018 code demonstrates this on lines 19-24.
+		   
+		Also, your backwards code didn't work because you were adding 180 to
+		your `angle` var, which you weren't converting to encoder units.
+		*/
+		
 	    motorDrive.set(speed * flip);
 	    double setpoint = angle;
 	    pid.setEnabled(true);
