@@ -34,7 +34,6 @@ public class Robot extends IterativeRobot {
 	public final static double MEASURE_LENGTH = 28;
 	public final static double MEASURE_DIAG = Math.sqrt ((MEASURE_LENGTH * MEASURE_LENGTH) + (MEASURE_WIDTH * MEASURE_WIDTH));
 	public final static double ETD = 1.158333; //ENCODER TO DEGREES
-	public boolean input = false;
 	
 	// ALL MOTORS
 	
@@ -64,11 +63,11 @@ public class Robot extends IterativeRobot {
 	
 	// Defining swerve vars
 	double a, b, c, d, rads;
-	boolean driverOriented = true;
+	public static boolean driverOriented = true;
 	double driveVal[] = {0,0,0};
 	
 	//NAVX CONSTRUCTOR
-	AHRS ahrs = new AHRS(SPI.Port.kMXP); //Use this for gyro
+	static AHRS ahrs = new AHRS(SPI.Port.kMXP); //Use this for gyro
 	
 	// PID Loops for the rotational motors
 	PIDController pidDir[] = { // p started as .035
@@ -105,14 +104,16 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void teleopInit() {
 		for (int i=0;i<=3;i++) {
-			pidDir[i].reset();
+			pidDir[i].enable();
 			pidDir[i].setInputRange(-180,180);
 			pidDir[i].setOutputRange(-1,1);
 			pidDir[i].setContinuous();
-			pidDir[i].enable();
+			pidDir[i].reset();
 			encoder[i].reset();
 		}
 		driveVal[0] = 0;driveVal[1] = 0;driveVal[2] = 0;
+		ahrs.reset();
+		resetAllWheels();
 	}
 	
 	@Override
@@ -128,7 +129,7 @@ public class Robot extends IterativeRobot {
 				driveVal[i] /= 2;
 			}
 		}
-		setPIDs(pidDir,true);
+		enablePIDs(pidDir,true);
 		
 		SmartDashboard.putNumber("fwd", driveVal[0]);
 		SmartDashboard.putNumber("str", driveVal[1]);
@@ -137,67 +138,20 @@ public class Robot extends IterativeRobot {
 		if ((driveVal[0] == 0 && driveVal[1] == 0 && driveVal[2] == 0) == false) {
 				for (int i=0;i<=3;i++) {
 				// Actual swerve function
-				wheel[i].swerve(driveVal[0],driveVal[1],driveVal[2],input);
+				wheel[i].swerve(driveVal[0],driveVal[1],driveVal[2]);
 			}
-			input = true;
 		} else {
-			input = false;
-			wheel[0].flip = 1;wheel[1].flip = 1;wheel[2].flip = 1;wheel[3].flip = 1;
-			pidDir[0].setSetpoint(0);pidDir[1].setSetpoint(0);
-			pidDir[2].setSetpoint(0);pidDir[3].setSetpoint(0);
+			//resetAllWheels();
 		}
 		
 		if (controlDrive.getRawButtonPressed(3)) {
 			encoder[0].reset();encoder[1].reset();
 			encoder[2].reset();encoder[3].reset();
-			pidDir[0].setSetpoint(0);pidDir[1].setSetpoint(0);
-			pidDir[2].setSetpoint(0);pidDir[3].setSetpoint(0);
+			resetAllWheels();
 			//ahrs.reset();
 		}
 	}
 	
-	
-	
-	// THE FOLLOWING IS SWERVE CODE THAT I'M MOVING INTO ITS OWN OBJECT
-	
-	
-	public void swerveDrive(double fwd, double str, double rcw) {
-	    // quick maffs
-		//str *= -1;
-		fwd *= -1;
-		
-	    a = fwd - rcw * (MEASURE_LENGTH / MEASURE_DIAG);
-	    b = fwd + rcw * (MEASURE_LENGTH / MEASURE_DIAG);
-	    c = str - rcw * (MEASURE_WIDTH / MEASURE_DIAG);
-	    d = str + rcw * (MEASURE_WIDTH / MEASURE_DIAG);
-	    // NEW labeled as 0 back right, 1 back left, 2 front right, 3 front left
-	    // OLD labeled as 0 front right, 1 front left, 2 back left, 3 back right
-	    double speed[] = {
-	    		Math.sqrt ((b * b) + (d * d)), // 2 new 0 old
-	    		Math.sqrt ((b * b) + (c * c)), // 3 new 1 old
-	    		Math.sqrt ((a * a) + (c * c)), // 1 new 3 old
-	    		Math.sqrt ((a * a) + (d * d)) // 0 new 2 old
-	    };
-	    double angle[] = {
-	    		(Math.atan2 (b, d) * 180 / Math.PI) * ETD, // 2 new 0 old
-	    		(Math.atan2 (b, c) * 180 / Math.PI) * ETD, // 3 new 1 old
-	    		(Math.atan2 (a, c) * 180 / Math.PI) * ETD, // 1 new 3 old
-	    		(Math.atan2 (a, d) * 180 / Math.PI) * ETD // 0 new 2 old
-
-	    };
-	    
-	    for (int i=0;i<=3;i++) {
-		    motorDrive[i].set(speed[i]);
-		    double setpoint = angle[i];
-		    //if (setpoint != 0) setpoint -= 90;
-		    pidDir[i].setSetpoint(setpoint);
-		    
-		    SmartDashboard.putNumber("Setpoint"+Integer.toString(i), setpoint);
-		    SmartDashboard.putNumber("motorDir"+Integer.toString(i), motorDir[i].get());
-		    SmartDashboard.putNumber("Encoder"+Integer.toString(i), encoder[i].get());
-		    SmartDashboard.putNumber("SETPOINT"+Integer.toString(i), pidDir[i].getSetpoint());
-	    }
-	}
 	
 	/**
 	 * This function is called periodically during test mode.
@@ -206,7 +160,7 @@ public class Robot extends IterativeRobot {
 	public void testPeriodic() {
 		// Tuning wheels
 		
-		setPIDs(pidDir,false);
+		enablePIDs(pidDir,false);
 		encoder[0].reset();
 		encoder[1].reset();
 		encoder[2].reset();
@@ -237,10 +191,21 @@ public class Robot extends IterativeRobot {
 		}
 	}
 	
-	public void setPIDs(PIDController[] pids, boolean enabled) {
+	public void enablePIDs(PIDController[] pids, boolean enabled) {
 		// Quick way to enable or disable a group of PID controllers
 		for (int i=0;i<=3;i++) {
 			pids[i].setEnabled(enabled);
+		}
+	}
+	public void setPIDs(PIDController[] pids, double val) {
+		for (int i=0;i<=3;i++) {
+			pids[i].setSetpoint(val);
+		}
+	}
+	public void resetAllWheels() {
+		// Very simply resets all wheels
+		for (int i = 0;i<=3;i ++) {
+			wheel[i].reset();
 		}
 	}
 }
