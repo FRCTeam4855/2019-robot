@@ -28,6 +28,8 @@ public class Wheel {
 	}
 	double flip = 1;
 	
+	
+	
 	public void swerve(double str, double fwd, double rcw) {
 		double speed = 0, angle = 0;
 		
@@ -61,14 +63,13 @@ public class Wheel {
 		    	angle = findWheelAngle(a,d);
 		    	break;
 	    }
-	    
 	    motorDrive.set(speed * getFlip());
 	    double setpoint = angle;
 	    pid.setEnabled(true);
 	    pid.setSetpoint(setpoint);
 	}
 	
-	public double findWheelAngle(double m1, double m2) {
+	private double findWheelAngle(double m1, double m2) {
 		double angleCalc = (Math.atan2(m1, m2) * 180 / Math.PI) * Robot.ETD;
 		if (angleCalc == 0) {
 			// If the calculated angle is 0, set the angle to whatever angle was during last step
@@ -100,5 +101,6 @@ public class Wheel {
 	public void reset() {
 		flipVal = 0;addto = 0;
 		angleLast = 0;angleCalc = 0;
+		pid.setSetpoint(0);
 	}
 }

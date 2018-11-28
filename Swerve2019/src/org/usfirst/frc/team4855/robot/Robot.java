@@ -104,11 +104,12 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void teleopInit() {
 		for (int i=0;i<=3;i++) {
+			pidDir[i].reset();
 			pidDir[i].enable();
 			pidDir[i].setInputRange(-180,180);
 			pidDir[i].setOutputRange(-1,1);
 			pidDir[i].setContinuous();
-			pidDir[i].reset();
+			pidDir[i].setSetpoint(0);
 			encoder[i].reset();
 		}
 		driveVal[0] = 0;driveVal[1] = 0;driveVal[2] = 0;
@@ -123,7 +124,7 @@ public class Robot extends IterativeRobot {
 		driveVal[2] = controlDrive.getRawAxis(4); // rcw
 		
 		for (int i=0;i<=2;i++) {
-			if (driveVal[i] <= .2  && driveVal[i] >= -.2) {
+			if (driveVal[i] <= .25  && driveVal[i] >= -.25) {
 				driveVal[i] = 0;
 			} else {
 				driveVal[i] /= 2;
@@ -135,19 +136,23 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putNumber("str", driveVal[1]);
 		SmartDashboard.putNumber("rcw", driveVal[2]);
 		
-		if ((driveVal[0] == 0 && driveVal[1] == 0 && driveVal[2] == 0) == false) {
+		//if ((driveVal[0] == 0 && driveVal[1] == 0 && driveVal[2] == 0) == false) {
 				for (int i=0;i<=3;i++) {
 				// Actual swerve function
 				wheel[i].swerve(driveVal[0],driveVal[1],driveVal[2]);
+				
+				// Wheel adjustments
+				checkWheelSpeed();
 			}
-		} else {
+		//} else {
 			//resetAllWheels();
-		}
+			//zeroWheels();
+		//}
 		
 		if (controlDrive.getRawButtonPressed(3)) {
-			encoder[0].reset();encoder[1].reset();
-			encoder[2].reset();encoder[3].reset();
 			resetAllWheels();
+			/*encoder[0].reset();encoder[1].reset();
+			encoder[2].reset();encoder[3].reset();*/
 			//ahrs.reset();
 		}
 	}
@@ -206,6 +211,23 @@ public class Robot extends IterativeRobot {
 		// Very simply resets all wheels
 		for (int i = 0;i<=3;i ++) {
 			wheel[i].reset();
+		}
+	}
+	
+	public void checkWheelSpeed() {
+		double high = 0;
+		for (int i=0;i<=3;i++) {
+			if (Math.abs(motorDrive[i].get()) > Math.abs(high)) high = Math.abs(motorDrive[i].get());
+		}
+		if (high > 1) {
+			for (int i=0;i<=3;i++) {
+				motorDrive[i].set(high / motorDrive[i].get() );
+			}
+		}
+	}
+	public void zeroWheels() {
+		for (int i=0;i<=3;i++) {
+			motorDrive[i].set(0);
 		}
 	}
 }
